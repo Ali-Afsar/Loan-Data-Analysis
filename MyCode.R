@@ -419,3 +419,75 @@ alldata2$Gender[is.na(alldata2$Gender) & is.na(alldata2$Dependents)] <- "Male"
  install.packages("rattle")
  library(rattle)
  fancyRpartPlot(depFit)
+ 
+ 
+ # Accuracy
+ 
+ p <- predict(depFit, mmTrain, type = "class")
+ 
+ acc <- sum(p == mmTrain[,1])/length(p)
+ acc
+ 
+ alldata2$Dependents[is.na(alldata2$Dependents) & alldata2$Gender == "Male" & alldata2$Married == "Yes"] <- predict(depFit,newdata = mmTest,type = "class")
+ 
+ 
+ # Now for Missing Gender
+ # We will use rpart again, this time with Married, Dependents, Education, SelfEmployed, App Income, CoApp Income as Predictor
+ 
+ gtrain <- alldata2[!is.na(alldata2$Gender),1:7]
+ gtest <- alldata2[is.na(alldata2$Gender), 1:7]
+ 
+ genFit <- rpart(data = gtrain, Gender~., xval =3)
+ fancyRpartPlot(genFit)
+ 
+ # Accuracy
+ 
+ p <- predict(genFit, gtrain, type = "class")
+ 
+ acc <- sum(p== gtrain[,1])/length(p)
+ 
+ acc
+ 
+ # impute Missing Gender
+ 
+ alldata2$Gender[is.na(alldata2$Gender)] <- predict(genFit, gtest, type = "class")
+ 
+ # Imputing Self Employed (as we see earlier about 85% are not self Employed)
+ 
+ alldata2$Self_Employed[is.na(alldata2$Self_Employed)] <- "No"
+ 
+ # Credit History, If credit history is not present means person does not do any transaction. So using Recoding
+ 
+ install.packages("car")
+ library(car)
+ alldata2$Credit_History <- recode(alldata$Credit_History, "NA=2")
+ 
+ # Imputing Loan Amount with glm, there are few ouliers, just going to train on values less than 500
+ 
+ alldata2$LoanAmount[alldata2$LoanAmount > 500]
+ 
+ ltrain <- alldata2[!is.na(alldata2$LoanAmount) & alldata2$LoanAmount < 500, c(1:8,10)]
+ 
+ ltest <- alldata2[is.na(alldata2$LoanAmount), c(1:8,10)]
+ 
+ install.packages("glm")
+ library(glm)
+ loanFit <- glm(data = ltrain, LoanAmount~., na.action = na.exclude)
+ 
+ alldata2$LoanAmount[is.na(alldata2$LoanAmount)] <- Predict(loanFit, newdata = ltest)
+ 
+ # Loan Amount Term (Treat this as a factor)
+ 
+ class(alldata2$Loan_Amount_Term)
+ 
+ alldata2$Loan_Amount_Term <- as.factor(alldata2$Loan_Amount_Term)
+ 
+ install.packages("ggplot2")
+ library(ggplot2)
+ ggplot(data = alldata2, aes(x = Loan_Amount_Term)) + geom_bar()
+ 
+ alldata2$Loan_Amount_Term[is.na(alldata2$Loan_Amount_Term)] <- "360"
+ alldata2$Loan_Amount_Term <- recode(alldata2$Loan_Amount_Term, "'12' ='84';'36' ='60'")
+ 
+ 
+ 
