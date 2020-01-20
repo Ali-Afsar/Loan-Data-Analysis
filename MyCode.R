@@ -491,3 +491,4 @@ alldata2$Gender[is.na(alldata2$Gender) & is.na(alldata2$Dependents)] <- "Male"
  
  
  
+ 
