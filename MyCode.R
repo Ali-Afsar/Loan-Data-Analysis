@@ -489,6 +489,108 @@ alldata2$Gender[is.na(alldata2$Gender) & is.na(alldata2$Dependents)] <- "Male"
  alldata2$Loan_Amount_Term[is.na(alldata2$Loan_Amount_Term)] <- "360"
  alldata2$Loan_Amount_Term <- recode(alldata2$Loan_Amount_Term, "'12' ='84';'36' ='60'")
  
+ # Creating more Feauturs
  
+ # Income per member of a family. Total Income divided by 2+No of Dependent, unless the coapp income is zero, for which
+ # We assume that there is no coapplicant and divide by 1+Dependents
+ 
+ numDependents <- recode(alldata2$Dependents, "'3+' = '3'")
+ 
+ class(numDependents)
+ 
+ numDependents <- as.numeric(as.character(numDependents))
+ 
+ alldata2$FamilySize <- ifelse((alldata2$CoapplicantIncome >0 | alldata2$Married =="Y"),numDependents+2,numDependents+1)
+ 
+ alldata2$IncomePerMembeer <- alldata2$TotalIncome/alldata2$FamilySize
+ 
+ # Ratio of LoanAmount to total Income and to income per member, ratio of the loan amount divided by loan term to the 
+ # total income or income per member
+ 
+ alldata2$LoanAmountbyTotInc <- alldata2$LoanAmount/alldata2$TotalIncome
+ alldata2$LoanAmountPerMem <- alldata2$LoanAmount/alldata2$IncomePerMembeer
+ 
+ class(alldata2$Loan_Amount_Term)
+ 
+ alldata2$Loan_Amount_Term <- as.numeric(as.character(alldata2$Loan_Amount_Term))
+ 
+ alldata2$LonaPerMonth <- alldata2$LoanAmount/alldata2$Loan_Amount_Term
+ 
+ alldata2$LoanAmountPerMemByTotInc <- alldata2$LoanAmountPerMem/alldata2$TotalIncome
+ 
+ alldata2$LonaPerMonthPerMember <- alldata2$LonaPerMonth/alldata2$LoanAmountPerMem
+ 
+ # Loan Term as a factor
+ 
+ alldata2$Loan_Amount_Term <- as.factor(alldata2$Loan_Amount_Term)
+ 
+ # Creating bins for Applicant Income
+ 
+ bins <- cut(alldata2$ApplicantIncome, breaks = 20)
+ 
+ barplot(table(bins), main = "ApplicantIncome")
+ 
+ # create logbins for applicant income
+ 
+ logbins <- cut(ifelse(alldata2$ApplicantIncome <2.72,0,log(alldata2$ApplicantIncome)),breaks = 20)
+ 
+ barplot(table(logbins), main = "log of ApplicantIncome")
+ 
+ alldata2$LogofApplicantIncome <- ifelse(alldata2$ApplicantIncome <2.72,0,log(alldata2$ApplicantIncome))
+ alldata2$LogofCoApplicantIncome <- ifelse(alldata2$CoapplicantIncome <2.72,0,log(alldata2$CoapplicantIncome))
+ 
+ summary(alldata2$LoanAmount)
+ 
+ alldata2$LogLoanAmount <- log(alldata2$LoanAmount)
+ 
+ summary(alldata2$TotalIncome)
+ 
+ alldata2$LogOFTotalIncome <- log(alldata2$TotalIncome)
+ 
+ summary(alldata2$IncomePerMembeer)
+ 
+ alldata2LogOfIncomePerMember <- log(alldata2$IncomePerMembeer)
+ 
+ summary(alldata2$LoanAmountbyTotInc)
+ 
+ summary(alldata2$LoanAmountPerMem)
+ 
+ alldata2$LogofLoanAmountPerMem <- log(1000* alldata2$LoanAmountPerMem)
+ 
+ summary(alldata2$LonaPerMonth)
+ 
+ alldata2$LogOFLoanPerMonth <- log(alldata2$LonaPerMonth)
+ 
+ summary(alldata2$LoanAmountPerMemByTotInc)
+ 
+ summary(alldata2$LonaPerMonthPerMember)
+ 
+ alldata2$LogofLonaPerMonthPerMember <- log(alldata2$LonaPerMonthPerMember)
+ 
+ # There are some numeric variables, I had like check and remove that are heighly corelated
+ 
+ nums <- sapply(alldata2, class) == "numeric"
+ 
+ numvars <- alldata2[,nums]
+ 
+ m <- cor(numvars)
+ v <- as.vector(m)
+ 
+ id1 <- rep(rownames(m),17)
+ 
+ id2 <- as.vector(sapply(rownames(m),function(x) rep(x,17)))
+ 
+ d <- data.frame(v,id1,id2)
+ 
+ d <- d[d$v> 0.8 & d$v < 1,]
+ 
+ # Half of the rows are symetric repeats of the other row
+ 
+ d <- d[c(1:5,8),]
+ d
+ 
+ # remove the column of alldata2 with name in id1
+ 
+ alldata2 <- alldata2[, !(names(alldata2) %in% d$id1)]
  
  
