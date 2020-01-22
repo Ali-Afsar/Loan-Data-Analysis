@@ -593,4 +593,152 @@ alldata2$Gender[is.na(alldata2$Gender) & is.na(alldata2$Dependents)] <- "Male"
  
  alldata2 <- alldata2[, !(names(alldata2) %in% d$id1)]
  
+ # Training And Predicting Loan Status
  
+ dim(alldata2)
+ 
+ dim(train)
+ newTrain <- cbind(Loan_Status=train$Loan_Status,alldata2[1:492,])
+ 
+ 
+ dim(test)
+ 
+test$Loan_Status
+
+# Bogus loan status for test set
+
+Loan_Status <- as.factor(sample(c("N","Y"), replace = TRUE, size = dim(test)[1]))
+
+newTest <- cbind(Loan_Status, alldata2[493:614,])
+
+# Create Task
+
+install.packages("mlr")
+library(mlr)
+trainTask <- makeClassifTask(data = newTrain, target = "Loan_Status")
+  
+  testTask <- makeClassifTask(data = newTest, target = "Loan_Status")
+  
+# Normalize the variable
+  
+  trainTask <- normalizeFeatures(trainTask, method = "standardize")
+  testTask <- normalizeFeatures(testTask, method = "standardize")
+  
+# Decision Tree Model
+  
+  tree <- makeLearner("classif.rpart", predict.type = "response")
+  
+# 3 fold cross validation
+  
+  set_cv <- makeResampleDesc("CV", iters = 3L)
+  
+# Hyperparameter Search
+  
+  treepars <- makeParamSet(
+              makeIntegerParam("minsplit", lower = 10, upper = 50),
+              makeIntegerParam("minbucket", lower = 5, upper = 50),
+              makeNumericParam("cp", lower = 0.001, upper = 0.2)
+  )
+  
+# Try 100 different combination of values
+  
+  tpcontrol <- makeTuneControlRandom(maxit = 100L)
+  
+# Hypertune the variable
+  
+  rm(acc)
+  
+  set.seed(1)
+  
+  treetune <- tuneParams(learner = tree, resampling = set_cv, task = trainTask, par.set = treepars, control = tpcontrol, measures = acc)
+  
+# Using Hyperparameter for Modeling
+  
+  tunedTree <- setHyperPars(tree, par.vals = treetune$x)
+
+# Train the Model
+  
+  treefit <- train(tunedTree, trainTask)
+  
+  install.packages("rattle")
+  library(rattle)
+par(mfrow = c(1,1))
+fancyRpartPlot(getLearnerModel(treefit))
+
+# Make the Prediction
+
+treepred <- predict(treefit, testTask)
+
+# Create a submission file
+
+submit1 <- data.frame(Loan_ID = test$ï..Loan_ID, Loan_Status = treepred$data$response)
+
+write.csv(submit1, "sol1.csv", row.names = FALSE)
+
+# Lets See if a Random Forest can Improve
+
+# create a Learner
+
+rf <- makeLearner("classif.randomForest", predict.type = "response", par.vals = list(ntree = 200, mtry =3 ))
+
+rf$par.vals <- list(importance = TRUE)
+
+
+# Set Tunable Parameter
+
+rf_param <- makeParamSet(
+            makeIntegerParam("ntree", lower = 50, upper = 500),
+            makeIntegerParam("mtry", lower = 2, upper = 10),
+            makeIntegerParam("nodesize", lower = 10, upper = 50)
+)
+
+# Random search for 100 iteration
+
+rancontrol <- makeTuneControlRandom(maxit = 100L)
+
+# set 3 fold cross validation
+
+set_cv <- makeResampleDesc("CV", iters = 3L)
+
+# Hypertuning
+
+set.seed(1)
+rf_tune <- tuneParams(learner = rf, resampling = set_cv, task = trainTask, par.set = rf_param, control = rancontrol, measures = acc)
+
+rf_tune$y
+
+# best parameter
+
+rf_tune$x
+
+# HyperParameter for Modeling
+
+tunedrf <- setHyperPars(rf, par.vals = rf_tune$x)
+
+# Train the Model
+
+rforest <- train(tunedrf, trainTask)
+
+getLearnerModel(rforest)
+
+
+# Model Prediction
+
+rfModel <- predict(rforest, testTask)
+
+# File Submission
+
+submit2 <- data.frame(Loan_ID = test$ï..Loan_ID, Loan_Status = rfModel$data$response)
+
+write.csv(submit2, "sol2.csv", row.names = FALSE)
+
+submit <- cbind(submit1$Loan_Status, submit2$Loan_Status)
+
+sum(submit[,1] == submit[,2])
+
+# Most of the variables are not Important
+
+library(randomForest)
+varImpPlot(rforest$learner.model)
+
+# What is the Missing Feature??
